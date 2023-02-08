@@ -1,0 +1,67 @@
+---
+title: "R Notebook_Alister_Project"
+output: html_notebook
+---
+
+```{r}
+#Importing Alberta.csv 
+data = read.csv("C:/Users/alist/OneDrive/Desktop/Data 606/Project/chess_df_overall.csv", header=TRUE)
+head(data,3)
+```
+
+```{r}
+df2<-data[!(data$winner=="DRAW"),]
+df2
+```
+```{r}
+unique(df2$winner)
+```
+```{r}
+#write.csv(df2 , "C:/Users/alist/OneDrive/Desktop/Data 606/Project/chess_df_draw_dropped.csv", row.names=TRUE)
+```
+
+```{r}
+#Q -Q plot Normality test
+df2.white<-subset(df2,winner =="WHITE")
+df2.black<-subset(df2,winner =="BLACK")
+```
+```{r}
+variable_1<-c("turns","Rating_WB")
+par(mfrow = c(2,1))
+
+for(i in variable_1) {
+  qqnorm(df2.white[[i]]);qqline(df2.white[[i]])}
+```
+
+>Normality test for heart disease group using Shapiro Test
+
+```{r}
+shapiro.test(df2.white$turns[0:5000])
+shapiro.test(df2.white$Rating_WB[0:5000])
+```
+```{r}
+library(nortest)
+ad.test(df2.white$turns)
+ad.test(df2.white$Rating_WB)
+```
+> Passes the normality test
+
+
+```{r}
+par(mfrow = c(2,1))
+for(i in variable_1) {
+  qqnorm(df2.black[[i]]);qqline(df2.black[[i]])}
+```
+```{r}
+shapiro.test(df2.black$turns[0:5000])
+shapiro.test(df2.black$Rating_WB[0:5000])
+```
+```{r}
+library(nortest)
+ad.test(df2.black$turns)
+ad.test(df2.black$Rating_WB)
+```
+
+> Checking the condition of multicolinearity
+
+
