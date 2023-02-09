@@ -160,3 +160,33 @@ library(ggplot2)
 library(GGally)
 ggpairs(Q2.sub,lower = list(continuous = "smooth_loess",combo ="facethist",discrete = "facetbar",na ="na"))
 ```
+> Checking the levels in the response variable
+
+```{r}
+as.factor(data_Q2$victory_status)
+```
+```{r}
+any(is.na(data_Q2$victory_status))
+```
+
+```{r}
+data_Q2$vicfact<-factor(data_Q2$victory_status)
+```
+```{r}
+unique(data_Q2$vicfact)
+```
+
+```{r}
+library(tidyverse)
+library(nnet)
+```
+
+
+```{r}
+# Fit the multinomial regression model
+m.model <- glm(vicfact~., data = data_Q2)
+
+# Summarize the model
+summary(m.model)
+```
+
