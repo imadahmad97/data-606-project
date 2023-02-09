@@ -69,3 +69,69 @@ ad.test(df2.black$Rating_WB)
 > Checking the condition of multicolinearity
 
 
+
+
+********************************************
+# Q2
+> Reading the file for second question: 
+
+```{r}
+#File for second question
+data_Q2 = read.csv("C:/Users/alist/OneDrive/Desktop/Data 606/Project/data-606-project/chess_strat_Q2.csv", header=TRUE)
+head(data_Q2,3)
+```
+
+```{r}
+unique(data_Q2$victory_status)
+```
+```{r}
+#Q -Q plot Normality test
+Q2.outoftime<-subset(data_Q2,victory_status =="OUTOFTIME")
+Q2.resign<-subset(data_Q2,victory_status =="RESIGN")
+Q2.mate<-subset(data_Q2,victory_status =="MATE")
+```
+```{r}
+variable_2<-c("turns","Rating_WB")
+par(mfrow = c(2,1))
+
+for(i in variable_2) {
+  qqnorm(Q2.outoftime[[i]]);qqline(Q2.outoftime[[i]])}
+```
+```{r}
+shapiro.test(Q2.outoftime$turns[0:5000])
+shapiro.test(Q2.outoftime$Rating_WB[0:5000])
+```
+```{r}
+library(nortest)
+ad.test(Q2.outoftime$turns)
+ad.test(Q2.outoftime$Rating_WB)
+```
+
+```{r}
+par(mfrow = c(2,1))
+for(i in variable_2) {
+  qqnorm(Q2.resign[[i]]);qqline(Q2.resign[[i]])}
+```
+```{r}
+shapiro.test(Q2.resign$turns[0:5000])
+shapiro.test(Q2.resign$Rating_WB[0:5000])
+```
+```{r}
+library(nortest)
+ad.test(Q2.resign$turns)
+ad.test(Q2.resign$Rating_WB)
+```
+```{r}
+par(mfrow = c(2,1))
+for(i in variable_2) {
+  qqnorm(Q2.mate[[i]]);qqline(Q2.mate[[i]])}
+```
+```{r}
+shapiro.test(Q2.mate$turns[0:5000])
+shapiro.test(Q2.mate$Rating_WB[0:5000])
+```
+```{r}
+library(nortest)
+ad.test(Q2.mate$turns)
+ad.test(Q2.mate$Rating_WB)
+```
