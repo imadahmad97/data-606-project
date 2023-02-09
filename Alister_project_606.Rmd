@@ -66,7 +66,21 @@ ad.test(df2.black$turns)
 ad.test(df2.black$Rating_WB)
 ```
 
-> Checking the condition of multicolinearity
+> Variance test
+
+```{r}
+df2.sub = subset(df2,select = c(turns,Rating_WB))
+df2.sub
+```
+
+```{r}
+library(ggplot2)
+library(GGally)
+ggpairs(df2.sub,lower = list(continuous = "smooth_loess",combo ="facethist",discrete = "facetbar",na ="na"))
+```
+
+
+>Pending to check independence
 
 
 
