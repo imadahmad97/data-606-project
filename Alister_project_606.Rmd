@@ -149,3 +149,14 @@ library(nortest)
 ad.test(Q2.mate$turns)
 ad.test(Q2.mate$Rating_WB)
 ```
+>Variance Test for Q2
+
+```{r}
+Q2.sub = subset(data_Q2,select = c(turns,Rating_WB))
+Q2.sub
+```
+```{r}
+library(ggplot2)
+library(GGally)
+ggpairs(Q2.sub,lower = list(continuous = "smooth_loess",combo ="facethist",discrete = "facetbar",na ="na"))
+```
