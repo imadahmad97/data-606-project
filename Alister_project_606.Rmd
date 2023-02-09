@@ -33,7 +33,7 @@ for(i in variable_1) {
   qqnorm(df2.white[[i]]);qqline(df2.white[[i]])}
 ```
 
->Normality test for heart disease group using Shapiro Test
+>Normality test for Winner group using Shapiro Test
 
 ```{r}
 shapiro.test(df2.white$turns[0:5000])
