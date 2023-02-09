@@ -1,0 +1,208 @@
+```{r}
+library(dplyr)
+library(sampling)
+raw = read.csv('chess_df_overall.csv')
+```
+
+```{r}
+set.seed(5)
+raw<-raw[!(raw$winner=="DRAW"),]
+raw = raw %>% mutate(rating_bins = ifelse(raw$Rating_WB<0.70, "Black Favoured", ifelse(raw$Rating_WB>1.3, "White Favoured", "Equal")))
+N = sum(table(raw$rating_bins))
+sampSize = N * 0.75
+black_favoured = table(raw$rating_bins)[1]
+equal = table(raw$rating_bins)[2]
+white_favoured = table(raw$rating_bins)[3]
+Ny=c(equal, black_favoured, white_favoured)
+idx2=sampling:::strata(raw, stratanames=c("rating_bins"), size=sampSize*Ny/N, method="srswor")
+train = getdata(raw, idx2)
+test = raw[-idx2$ID_unit,]
+train$winner = as.factor(train$winner)
+test$winner = as.factor(test$winner)
+train$victory_status = as.factor(train$victory_status)
+test$victory_status = as.factor(test$victory_status)
+```
+
+
+```{r}
+raw.white<-subset(raw,winner =="WHITE")
+raw.black<-subset(raw,winner =="BLACK")
+```
+
+```{r}
+variable_1<-c("turns","Rating_WB")
+par(mfrow = c(2,1))
+for(i in variable_1) {
+  qqnorm(raw.white[[i]]);qqline(raw.black[[i]])}
+```
+
+```{r}
+par(mfrow = c(2,1))
+for(i in variable_1) {
+  qqnorm(raw.black[[i]]);qqline(raw.black[[i]])}
+```
+```{r}
+write.csv(train, "stratified_file1.csv", row.names=FALSE)
+```
+
+```{r}
+train
+```
+
+
+# Ibtassam Code
+
+```{r}
+library(tree)
+library(MASS)
+library(ISLR)
+```
+Classification tree & k-fold
+
+Step 1: Install package "kmed" if you have not done so. Attach "Heart" dataset and check the names of the variables and the dimension of this dataset
+Step 2: Use "Yes" and "No" to indicate whether or not the patient has heart disease. Apply the validation approach and fit a classification tree to the training data.
+
+```{r}
+train$victory_status = as.factor(train$victory_status)
+train$pace_type = as.factor(train$pace_type)
+train$rated = as.factor(train$rated)
+train$rating_bins = as.factor(train$rating_bins)
+train$W1 = as.factor(train$W1)
+train$B1 = as.factor(train$B1)
+```
+
+
+```{r}
+contrasts(train$pace_type)
+```
+
+```{r}
+train$victory_status
+```
+
+```{r}
+tree.class<-tree(factor(victory_status)~factor(rated)+turns+factor(pace_type)+Rating_WB+factor(rating_bins)+factor(W1)+factor(B1), train)
+summary(tree.class)
+```
+
+Step 3: plot the tree.
+```{r}
+plot(tree.class)
+text(tree.class, pretty=0)
+```
+
+Step 4: Apply the fitted tree to the test set
+```{r}
+tree.pred<-predict(tree.class,test,type = "class")
+table(tree.pred,test$HD)
+```
+
+Step 5: prune the tree using cross-validation (We use
+the argument ${\color{red}{FUN=prune.misclass}}$ in order to indicate that we want the
+classification error rate to guide the cross-validation and pruning process)
+```{r}
+set.seed(3)
+cv.class<-cv.tree(tree.class, FUN = prune.misclass, K=10) 
+plot(cv.class$size, cv.class$dev,type="b")
+```
+
+Step 6: find the "best" tree using the cross-validation result
+```{r}
+prune.class=prune.tree(tree.class,best=6)
+plot(prune.class)
+text(prune.class,pretty=0)
+```
+
+Step 7: apply the pruned tree to do prediction
+```{r}
+prune.pred=predict(prune.class,test,type="class")
+table(prune.pred,test$HD)
+```
+
+
+## Q1 CLASSIFICATION
+
+```{r}
+# this is the dataset made by Taylan on 08 Feb 2023
+q1 = read.csv("Chess_data_q1.csv")
+q1
+```
+
+```{r}
+# I will first attempt to split data into train/ test and stratify it.
+set.seed(5)
+q1<-q1[!(q1$winner=="DRAW"),]
+q1 = q1 %>% mutate(rating_bins = ifelse(q1$Rating_WB<0.70, "Black Favoured", ifelse(q1$Rating_WB>1.3, "White Favoured", "Equal")))
+N2 = sum(table(q1$rating_bins))
+sampSize = N2 * 0.75
+black_favoured = table(q1$rating_bins)[1]
+equal = table(q1$rating_bins)[2]
+white_favoured = table(q1$rating_bins)[3]
+Ny2=c(equal, black_favoured, white_favoured)
+idx3=sampling:::strata(q1, stratanames=c("rating_bins"), size=sampSize*Ny2/N2, method="srswor")
+train2 = getdata(q1, idx3)
+test2 = q1[-idx3$ID_unit,]
+```
+
+
+```{r}
+# Convert categorical variables to factors
+test2$winner = as.factor(test2$winner)
+test2$victory_status = as.factor(test2$victory_status)
+train2$victory_status = as.factor(train2$victory_status)
+train2$pace_type = as.factor(train2$pace_type)
+train2$rated = as.factor(train2$rated)
+train2$rating_bins = as.factor(train2$rating_bins)
+train2$W1 = as.factor(train2$W1)
+train2$B1 = as.factor(train2$B1)
+train2$opening_strategy = as.factor(train2$opening_strategy)
+```
+
+
+```{r}
+contrasts(train2$pace_type)
+```
+
+```{r}
+train2$victory_status
+```
+
+```{r}
+tree.class2<-tree(factor(victory_status)~factor(rated)+turns+factor(pace_type)+Rating_WB+factor(rating_bins)+factor(W1)+factor(B1), train2)
+summary(tree.class2)
+```
+
+Step 3: plot the tree.
+```{r}
+plot(tree.class2)
+text(tree.class2, pretty=0)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
