@@ -1,0 +1,102 @@
+---
+title: "DATA 606 - Final Project"
+output: html_notebook
+---
+
+```{r warning=FALSE, message=FALSE}
+if (!require(pacman)) install.packages('pacman')
+p_load(dplyr, Hmisc, ggplot2, ISLR, stringr, Information)
+```
+
+```{r}
+chess_df = read.csv('games.csv')
+```
+
+```{r}
+# Combined white_id and black_id into one column, then removed duplicates from this column
+chess_df$combined = paste(chess_df$white_id, '-', chess_df$black_id, sep = '')
+chess_df = chess_df[!duplicated(chess_df$combined), ]
+```
+
+```{r}
+# Converting chars to factor:
+chess_df$rated = as.factor(toupper(chess_df$rated))
+chess_df$victory_status = as.factor(toupper(chess_df$victory_status))
+chess_df$winner = as.factor(toupper(chess_df$winner))
+chess_df$opening_name = as.factor(toupper(chess_df$opening_name))
+```
+
+```{r}
+chess_df[c('IC1', 'IC2')] <- str_split_fixed(chess_df$increment_code, '[+]', 2)
+chess_df$IC1 = as.numeric(chess_df$IC1)
+
+chess_df = chess_df %>% 
+  mutate(pace_type = if_else(IC1 < 3, 'Bullet', 
+                             if_else(IC1 < 15, 'Blitz', 'Standard')))
+
+chess_df$pace_type = as.factor(toupper(chess_df$pace_type))
+
+a = c('W1','B1','W2','B2','W3','B3','W4','B4','W5','B5', 'Rest')
+chess_df[a] <- str_split_fixed(chess_df$moves, ' ', 11)
+
+chess_df$W_First5 = paste(chess_df$W1, chess_df$W2, chess_df$W3, chess_df$W4,
+                          chess_df$W5, sep = '_')
+chess_df$B_First5 = paste(chess_df$B1, chess_df$B2, chess_df$B3, chess_df$B4,
+                          chess_df$B5, sep = '_')
+
+chess_df$Rating_WB = chess_df$white_rating/chess_df$black_rating
+
+chess_df = chess_df %>% select(-c('id', 'white_id', 'black_id','opening_eco',
+                                  'opening_ply', 'combined', 'created_at',
+                                  'last_move_at', 'created_at', 'last_move_at',
+                                  'increment_code', 'IC1', 'IC2', 'W2','B2','W3',
+                                  'B3','W4','B4','W5','B5', 'Rest', 'moves',
+                                  'white_rating', 'black_rating'))
+
+chess_df = chess_df %>% 
+  mutate(opening_strategy = if_else(grepl('DEFENSE', chess_df$opening_name, fixed = TRUE) == TRUE, 'DEFENSE', 'NO_DEFENSE'))
+
+
+a = c('P1', 'P2', 'P3')
+chess_df[a] = str_split_fixed(chess_df$opening_name, ':', 3)
+chess_df = chess_df %>% dplyr::select(-c('P2', 'P3'))
+
+a = c('P11', 'P12', 'P13')
+chess_df[a] = str_split_fixed(chess_df$P1, ' #', 3)
+chess_df = chess_df %>% dplyr::select(-c('P1', 'P12', 'P13'))
+
+a = c('P21', 'P22')
+chess_df[a] = str_split_fixed(chess_df$P11, '[|]', 2)
+chess_df = chess_df %>% dplyr::select(-c('P11', 'P22'))
+
+chess_df = chess_df %>% 
+  group_by(P21) %>% 
+  mutate(count=n()) %>%
+  mutate(op_name = if_else(count < 50, 'OTHER', P21))
+
+chess_df = chess_df %>% dplyr::select(-c('P21', 'count', 'opening_name'))
+```
+
+```{r}
+write.csv(chess_df, 'chess_df_overall.csv')
+```
+
+```{r}
+chess_df_q1 = chess_df %>% filter(winner != 'DRAW')
+chess_df_q1$winner = as.character(chess_df_q1$winner)
+chess_df_q1$winner = as.factor(chess_df_q1$winner)
+```
+
+```{r}
+chess_df_q1 = chess_df_q1 %>% 
+  mutate(target_y = if_else(winner == 'BLACK', 0, 1))
+IV = create_infotables(data=chess_df_q1, y='target_y')
+WOE_Op_Name = IV$Tables$op_name
+chess_df_q1 = merge(chess_df_q1,WOE_Op_Name,by='op_name', all.x = TRUE)
+```
+
+```{r}
+chess_df_q1 = chess_df_q1 %>% dplyr::select(-c('P21', 'IV', 'Percent', 
+                                               'N', 
+                                               'target_y'))
+```
