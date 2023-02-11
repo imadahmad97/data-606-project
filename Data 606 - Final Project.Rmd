@@ -1,0 +1,221 @@
+---
+title: "DATA 606 - Final Project"
+output: html_notebook
+---
+
+```{r warning=FALSE, message=FALSE}
+if (!require(pacman)) install.packages('pacman')
+p_load(dplyr, Hmisc, ggplot2, ISLR, stringr, Information, boot, caret, 
+       MASS, AppliedPredictiveModeling, DescTools)
+```
+
+```{r}
+chess_df = read.csv('games.csv')
+```
+
+```{r}
+# Combined white_id and black_id into one column, then removed duplicates from this column
+chess_df$combined = paste(chess_df$white_id, '-', chess_df$black_id, sep = '')
+chess_df = chess_df[!duplicated(chess_df$combined), ]
+```
+
+```{r}
+# Converting chars to factor:
+chess_df$rated = as.factor(toupper(chess_df$rated))
+chess_df$victory_status = as.factor(toupper(chess_df$victory_status))
+chess_df$winner = as.factor(toupper(chess_df$winner))
+chess_df$opening_name = as.factor(toupper(chess_df$opening_name))
+```
+
+```{r}
+chess_df[c('IC1', 'IC2')] <- str_split_fixed(chess_df$increment_code, '[+]', 2)
+chess_df$IC1 = as.numeric(chess_df$IC1)
+
+chess_df = chess_df %>% 
+  mutate(pace_type = if_else(IC1 < 3, 'Bullet', 
+                             if_else(IC1 < 15, 'Blitz', 'Standard')))
+
+chess_df$pace_type = as.factor(toupper(chess_df$pace_type))
+
+a = c('W1','B1','W2','B2','W3','B3','W4','B4','W5','B5', 'Rest')
+chess_df[a] <- str_split_fixed(chess_df$moves, ' ', 11)
+
+chess_df$W_First5 = paste(chess_df$W1, chess_df$W2, chess_df$W3, chess_df$W4,
+                          chess_df$W5, sep = '_')
+chess_df$B_First5 = paste(chess_df$B1, chess_df$B2, chess_df$B3, chess_df$B4,
+                          chess_df$B5, sep = '_')
+
+chess_df$Rating_WB = chess_df$white_rating/chess_df$black_rating
+
+chess_df = chess_df %>% select(-c('id', 'white_id', 'black_id','opening_eco',
+                                  'opening_ply', 'combined', 'created_at',
+                                  'last_move_at', 'created_at', 'last_move_at',
+                                  'increment_code', 'IC1', 'IC2', 'W2','B2','W3',
+                                  'B3','W4','B4','W5','B5', 'Rest', 'moves',
+                                  'white_rating', 'black_rating'))
+
+chess_df = chess_df %>% 
+  mutate(opening_strategy = if_else(grepl('DEFENSE', chess_df$opening_name, fixed = TRUE) == TRUE, 'DEFENSE', 'NO_DEFENSE'))
+
+
+a = c('P1', 'P2', 'P3')
+chess_df[a] = str_split_fixed(chess_df$opening_name, ':', 3)
+chess_df = chess_df %>% dplyr::select(-c('P2', 'P3'))
+
+a = c('P11', 'P12', 'P13')
+chess_df[a] = str_split_fixed(chess_df$P1, ' #', 3)
+chess_df = chess_df %>% dplyr::select(-c('P1', 'P12', 'P13'))
+
+a = c('P21', 'P22')
+chess_df[a] = str_split_fixed(chess_df$P11, '[|]', 2)
+chess_df = chess_df %>% dplyr::select(-c('P11', 'P22'))
+
+chess_df = chess_df %>% 
+  group_by(P21) %>% 
+  mutate(count=n()) %>%
+  mutate(op_name = if_else(count < 50, 'OTHER', P21))
+
+chess_df = chess_df %>% dplyr::select(-c('P21', 'count', 'opening_name'))
+```
+
+```{r}
+write.csv(chess_df, 'chess_df_overall.csv')
+```
+
+```{r}
+chess_df_q1 = chess_df %>% filter(winner != 'DRAW')
+chess_df_q1$winner = as.character(chess_df_q1$winner)
+chess_df_q1$winner = as.factor(chess_df_q1$winner)
+```
+
+```{r}
+chess_df_q1 = chess_df_q1 %>% 
+  mutate(target_y = if_else(winner == 'BLACK', 0, 1))
+IV = create_infotables(data=chess_df_q1, y='target_y')
+WOE_Op_Name = IV$Tables$op_name
+chess_df_q1 = merge(chess_df_q1,WOE_Op_Name,by='op_name', all.x = TRUE)
+```
+
+```{r}
+chess_df_q1$WOE_Opening_Name = chess_df_q1$WOE
+chess_df_q1 = chess_df_q1 %>% dplyr::select(-c('P21', 'IV', 'Percent', 
+                                               'N', 
+                                               'target_y',
+                                               'WOE'))
+```
+
+```{r}
+write.csv(chess_df_q1, 'Chess_data_q1.csv')
+```
+
+# Cross Validation to Determine Classification Treshold
+
+```{r}
+set.seed(5)
+folds_class = createFolds(chess_df_q1$winner, k=10)
+
+CV_Error = rep(0,50)
+
+log_reg_treshold = seq(0.5, 0.99, 0.01)
+
+fit_fomula = winner~WOE_Opening_Name #change the formula with your final model.
+CV_Error = rep(0,50)
+
+for (i in 1:50){
+  p_tresh = log_reg_treshold[i]
+  err = rep(0,10)
+  for (j in 1:10){
+    assign(paste0('temp_train'), chess_df_q1[-eval(parse(text = paste0('folds_class$Fold0',1))),])
+    assign(paste0('temp_validation'), chess_df_q1[eval(parse(text = paste0('folds_class$Fold0',1))),])
+    log_reg = glm(fit_fomula, data = temp_train, family = 'binomial') # change the name of the dataset.  
+    temp_probs = predict(log_reg, temp_validation, type="response")
+    actual = temp_validation$winner
+    predicted = rep('BLACK', nrow(temp_validation))
+    predicted[temp_probs >= p_tresh] = 'WHITE'
+    err[j] = 1-mean(predicted==actual)
+  }
+  CV_Error[i] = mean(err)
+}
+
+CV_Result = data.frame(Probabiliy_Tresholds = log_reg_treshold, CV_Error)
+
+ggplot()+
+  geom_line(data = CV_Result, aes(Probabiliy_Tresholds, CV_Error), colour='red')
+
+CV_Result %>% filter(CV_Error == min(CV_Error)) #we'll use this treshold to calculate model performance in test dataset. 
+```
+
+# Calculating $p(\text{W Wins}|\text{First Move})$
+
+```{r}
+chess_df_game = chess_df_q1 %>% dplyr::select(c('winner', 'W1'))
+chess_df_game$W1 = as.factor(chess_df_game$W1)
+```
+
+```{r}
+summary(chess_df_game)
+```
+
+```{r}
+WOE_W1 = IV$Tables$W1
+chess_df_game = merge(chess_df_game,WOE_W1,by='W1', all.x = TRUE)
+chess_df_game$WOE_W1 = chess_df_game$WOE
+
+chess_df_game = chess_df_game %>% dplyr::select(c('winner', 'W1', 'WOE_W1'))
+```
+
+```{r}
+idx = createDataPartition(chess_df_game$W1, p = .75, list = FALSE)
+train_df <- chess_df_game[ idx,]
+test_df  <- chess_df_game[-idx,]
+```
+
+```{r}
+set.seed(5)
+folds_class = createFolds(train_df$winner, k=10)
+
+CV_Error = rep(0,99)
+
+log_reg_treshold = seq(0.01, 0.99, 0.01)
+
+fit_fomula = winner~WOE_W1 #change the formula with your final model.
+
+
+for (i in 1:99){
+  p_tresh = log_reg_treshold[i]
+  err = rep(0,10)
+  for (j in 1:10){
+    assign(paste0('temp_train'), train_df[-eval(parse(text = paste0('folds_class$Fold0',1))),])
+    assign(paste0('temp_validation'), train_df[eval(parse(text = paste0('folds_class$Fold0',1))),])
+    log_reg = glm(fit_fomula, data = temp_train, family = 'binomial') # change the name of the dataset.  
+    temp_probs = predict(log_reg, temp_validation, type="response")
+    actual = temp_validation$winner
+    predicted = rep('BLACK', nrow(temp_validation))
+    predicted[temp_probs >= p_tresh] = 'WHITE'
+    err[j] = 1-mean(predicted==actual)
+  }
+  CV_Error[i] = mean(err)
+}
+
+CV_Result = data.frame(Probabiliy_Tresholds = log_reg_treshold, CV_Error)
+
+ggplot()+
+  geom_line(data = CV_Result, aes(Probabiliy_Tresholds, CV_Error), colour='red')
+
+CV_Result %>% filter(CV_Error == min(CV_Error)) #we'll use this treshold to calculate model performance in test dataset. 
+```
+
+```{r}
+fit_fomula = winner~WOE_W1
+log_reg = glm(fit_fomula, data = temp_train, family = 'binomial')
+final_df = data.frame(WOE_W1 = IV$Tables$W1$WOE, W1 = IV$Tables$W1$W1)
+final_df$Prob_Win = predict(log_reg, final_df, type="response")
+```
+
+```{r}
+final_df %>% 
+  dplyr::filter(Prob_Win == max(Prob_Win)) %>%
+  dplyr::select(c('W1', 'Prob_Win'))
+```
+
+![](images/image-1379528782.png)
