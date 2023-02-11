@@ -32,11 +32,20 @@ train2$opening_strategy = as.factor(train2$opening_strategy)
 
 factor(op_name) can't have more than 32 levels as per error so I excluded it from below tree
 ```{r}
-tree.class2<-tree(victory_status~rated+turns+pace_type+W1+B1+Rating_WB+WOE_Opening_Name, train2)
+tree.class2<-tree(factor(winner)~rated+turns+pace_type+W1+B1+Rating_WB+WOE_Opening_Name, train2)
 summary(tree.class2)
 ```
 
 plot the tree.
+
+
+```{r}
+library(rpart.plot)
+tree_model2 = rpart(factor(winner)~rated+turns+pace_type+W1+B1+WOE_Opening_Name+opening_strategy+rating_bins, data = train2, method="class")
+rpart.plot(tree_model2, type = 2, extra =1, under = TRUE, branch.lty=3, digits = 4)
+```
+
+
 ```{r}
 plot(tree.class2)
 text(tree.class2, pretty=0)
@@ -74,8 +83,15 @@ contrasts(train$pace_type)
 
 
 ```{r}
-tree.class<-tree(factor(victory_status)~factor(rated)+turns+factor(pace_type)+Rating_WB+factor(rating_bins)+factor(W1)+factor(B1), train)
-summary(tree.class)
+library(rpart)
+library(rpart.plot)
+tree_model = rpart(factor(victory_status)~factor(rated)+turns+factor(pace_type)+Rating_WB+factor(rating_bins)+factor(W1)+factor(B1)+factor(opening_strategy), data = train, method="class")
+#prp(tree_model)
+rpart.plot(tree_model, type = 2, extra =1, under = TRUE, branch.lty=3, digits = 4) #extra = 1 gives n, 100 gives %age, extra = 100 gives %age of n
+
+
+#tree.class<-tree(factor(victory_status)~factor(rated)+turns+factor(pace_type)+Rating_WB+factor(rating_bins)+factor(W1)+factor(B1), train)
+#summary(tree.class)
 ```
 
 Step 3: plot the tree.
