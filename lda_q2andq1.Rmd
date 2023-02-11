@@ -1,0 +1,284 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(MASS)
+```
+
+
+#Q2. What predictors are most important in telling how a game ends - using LDA, QDA, Multinomial - Chi-square test
+
+```{r}
+chess_data = read.csv("Q2_final_training_data.csv", header = TRUE)
+chess_data
+```
+
+#dropping columns not required for lda i.e. W_first5, B_first5
+```{r}
+#chess_data2 = subset(chess_data, select = -c(X,P21,W_First5,B_First5,ID_unit,Stratum,Prob) )
+chess_data2 = subset(chess_data, select = c(rated,turns,victory_status,winner,pace_type,Rating_WB,opening_strategy) )
+chess_data2
+```
+
+
+
+```{r}
+lda.fit<-lda(victory_status~., data=chess_data2)
+lda.fit
+#summary(lda.fit)
+```
+```{r}
+summary(lda.fit)
+```
+
+
+```{r}
+plot(lda.fit)
+```
+
+```{r}
+# test = read.csv('test_lda_q2.csv', header = TRUE)
+# test
+```
+
+
+
+```{r}
+#predict with test
+# lda.pred=predict(lda.fit, test)
+# names(lda.pred)
+```
+
+```{r}
+#table(lda.pred$class, Test$victory_status)
+```
+
+
+```{r}
+chess_data2$victory_status = as.factor(chess_data2$victory_status)
+contrasts(chess_data2$victory_status)
+
+```
+
+```{r}
+library(klaR)
+partimat(victory_status~., data = chess_data2, method="lda")
+```
+
+#cross validation
+```{r}
+library(caret)
+```
+```{r}
+set.seed(5)
+folds<-createFolds(chess_data2$victory_status, k=10)
+```
+
+
+```{r}
+fold1<-chess_data2[folds$Fold1,]
+table(fold1$victory_status)
+```
+#a function to calculate the misclassification rate (LDA).
+```{r}
+library (MASS)
+misclassification<-function(idx){
+train<-chess_data2[-idx,]
+test<-chess_data2[idx,]
+fit<-lda(victory_status~., data=train)
+pred<-predict(fit,test,type = "class")
+return(1-mean(pred$class==test$victory_status))
+}
+```
+#apply the function “lapply” to pass along a vector of indices to the function “misclassification”
+```{r}
+mis_rate=lapply(folds,misclassification)
+mis_rate
+```
+#calculate the average misclassification error.
+```{r}
+mean(as.numeric(mis_rate))
+```
+
+
+# #######################
+
+#Q1. Which columns predict if white or black wins.
+
+```{r}
+chess_data_q1_raw = read.csv("q1_final_training_data.csv", header = TRUE)
+chess_data_q1_raw
+```
+
+```{r}
+chess_data_q1 = subset(chess_data_q1_raw, select = -c(X,W_First5,B_First5,ID_unit,Stratum,Prob,rating_bins) )
+```
+
+
+```{r}
+lda.fit<-lda(winner~., data=chess_data_q1)
+lda.fit
+```
+
+```{r}
+plot(lda.fit)
+```
+
+```{r}
+# test = read.csv('test_lda_q2.csv', header = TRUE)
+# test
+```
+
+
+```{r}
+#predict with test
+# lda.pred=predict(lda.fit, test)
+# names(lda.pred)
+```
+
+```{r}
+#table(lda.pred$class, test$winner)
+```
+
+#cross validation
+```{r}
+library(caret)
+```
+
+```{r}
+set.seed(5)
+folds<-createFolds(chess_data_q1$winner, k=10)
+```
+
+
+```{r}
+fold1<-chess_data_q1[folds$Fold1,]
+table(fold1$winner)
+```
+#a function to calculate the misclassification rate (LDA).
+```{r}
+library (MASS)
+misclassification<-function(idx){
+train<-chess_data_q1[-idx,]
+test<-chess_data_q1[idx,]
+fit<-lda(winner~., data=train)
+pred<-predict(fit,test,type = "class")
+return(1-mean(pred$class==test$winner))
+}
+```
+#apply the function “lapply” to pass along a vector of indices to the function “misclassification”
+```{r}
+mis_rate=lapply(folds,misclassification)
+mis_rate
+```
+#calculate the average misclassification error.
+```{r}
+mean(as.numeric(mis_rate))
+```
+
+
+#Classification tree
+
+```{r}
+library(tree)
+```
+
+```{r}
+chess_data_q1_raw = read.csv("q1_final_training_data.csv", header = TRUE)
+chess_data_q1_raw
+```
+
+```{r}
+chess_data_q1_tree = subset(chess_data_q1_raw, select = c(rated,turns, victory_status,pace_type, W1, B1,winner, turns, Rating_WB, WOE_Opening_Name) )
+
+```
+
+```{r}
+str(chess_data_q1_tree)
+```
+```{r}
+#factor everything
+#chess_data_q1_tree$op_name = as.factor(chess_data_q1_tree$op_name)
+chess_data_q1_tree$winner = as.factor(chess_data_q1_tree$winner)
+chess_data_q1_tree$victory_status = as.factor(chess_data_q1_tree$victory_status)
+chess_data_q1_tree$rated = as.factor(chess_data_q1_tree$rated)
+
+chess_data_q1_tree$pace_type = as.factor(chess_data_q1_tree$pace_type)
+chess_data_q1_tree$B1 = as.factor(chess_data_q1_tree$B1)
+chess_data_q1_tree$W1 = as.factor(chess_data_q1_tree$W1)
+# chess_data_q1_tree$W_First5 = as.factor(chess_data_q1_tree$W_First5)
+# chess_data_q1_tree$B_First5 = as.factor(chess_data_q1_tree$B_First5)
+#chess_data_q1_tree$opening_strategy = as.factor(chess_data_q1_tree$opening_strategy)
+#chess_data_q1_tree$rating_bins = as.factor(chess_data_q1_tree$rating_bins)
+
+```
+
+```{r}
+contrasts(chess_data_q1_tree$rated)
+
+```
+
+```{r}
+# No_salary=subset(Hitters,is.na(Hitters$Salary))
+# New_data=na.omit(Hitters)
+```
+
+
+```{r}
+tree.class<-tree(factor(winner)~., data = chess_data_q1_tree)
+summary(tree.class)
+```
+
+```{r}
+plot(tree.class)
+text(tree.class, pretty=0)
+```
+
+```{r}
+# tree.pred<-predict(tree.class,test,type = "class")
+# table(tree.pred,test$winner)
+```
+
+```{r}
+set.seed(5)
+cv.class<-cv.tree(tree.class, FUN = prune.misclass, K=10) 
+plot(cv.class$size, cv.class$dev,type="b")
+```
+```{r}
+prune.class=prune.tree(tree.class,best=2)
+plot(prune.class)
+text(prune.class,pretty=0)
+```
+
+#testing after pruning
+```{r}
+# prune.pred=predict(prune.class,test,type="class")
+# table(prune.pred,test$winner)
+```
+
+#cv error classification
+
+```{r}
+set.seed(5)
+folds<-createFolds(chess_data_q1_tree$winner, k=10)
+
+library (MASS)
+misclassification2<-function(idx){
+train<-chess_data_q1_tree[-idx,]
+test<-chess_data_q1_tree[idx,]
+fit2<-tree (winner~., data=chess_data_q1_tree)
+pred2<-predict (fit2, test,type = "class")
+print(table(pred2,test$winner)) 
+return(1-mean(pred2==test$winner))
+}
+```
+
+```{r}
+mis_rate2=lapply(folds,misclassification2)
+mis_rate2
+```
+```{r}
+mean(as.numeric(mis_rate2))
+```
