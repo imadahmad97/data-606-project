@@ -1,0 +1,39 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+set.seed(5)
+folds_class = createFolds(chess_df_q1$winner, k=10)
+
+CV_Error = rep(0,50)
+
+log_reg_treshold = seq(0.5, 0.99, 0.01)
+
+fit_fomula = winner~WOE_Opening_Name #change the formula with your final model.
+CV_Error = rep(0,50)
+
+for (i in 1:50){
+  p_tresh = log_reg_treshold[i]
+  err = rep(0,10)
+  for (j in 1:10){
+    assign(paste0('temp_train'), chess_df_q1[-eval(parse(text = paste0('folds_class$Fold0',1))),])
+    assign(paste0('temp_validation'), chess_df_q1[eval(parse(text = paste0('folds_class$Fold0',1))),])
+    log_reg = glm(fit_fomula, data = temp_train, family = 'binomial') # change the name of the dataset.  
+    temp_probs = predict(log_reg, temp_validation, type="response")
+    actual = temp_validation$winner
+    predicted = rep('BLACK', nrow(temp_validation))
+    predicted[temp_probs >= p_tresh] = 'WHITE'
+    err[j] = 1-mean(predicted==actual)
+  }
+  CV_Error[i] = mean(err)
+}
+
+CV_Result = data.frame(Probabiliy_Tresholds = log_reg_treshold, CV_Error)
+
+ggplot()+
+  geom_line(data = CV_Result, aes(Probabiliy_Tresholds, CV_Error), colour='red')
+
+CV_Result %>% filter(CV_Error == min(CV_Error)) #we'll use this treshold to calculate model performance in test dataset. 
+```
