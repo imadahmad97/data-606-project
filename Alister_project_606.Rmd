@@ -72,6 +72,11 @@ ad.test(df2.black$Rating_WB)
 df2.sub = subset(df2,select = c(turns,Rating_WB))
 df2.sub
 ```
+```{r}
+library(stats)
+bartlett.test(winner~turns+Rating_WB,data = )
+```
+
 
 ```{r}
 library(ggplot2)
@@ -95,6 +100,7 @@ data_Q2 = read.csv("C:/Users/alist/OneDrive/Desktop/Data 606/Project/data-606-pr
 head(data_Q2,3)
 ```
 
+# Q2 Normality plot
 ```{r}
 unique(data_Q2$victory_status)
 ```
@@ -155,16 +161,62 @@ ad.test(Q2.mate$Rating_WB)
 Q2.sub = subset(data_Q2,select = c(turns,Rating_WB))
 Q2.sub
 ```
+
+> Checking the assumption of equal variance
+
+```{r}
+ggplot(data_Q2, 
+                        aes_string(x = "victory_status", 
+                                   y = "turns", 
+                                   col = "victory_status", 
+                                   fill = "victory_status")) + 
+    geom_boxplot(alpha = 0.2) + 
+    theme(legend.position = "none") + 
+    scale_color_manual(values = c("blue", "red","green")) +
+    scale_fill_manual(values = c("blue", "red","green"))
+```
+
+
+```{r}
+ggplot(data_Q2, aes(x = turns, y = Rating_WB, col = victory_status)) + 
+    geom_point() + 
+    stat_ellipse() + 
+    scale_color_manual(values = c("green", "red","purple"))
+```
+> From this scatter plot, we can  see that the variance for the Resign group is much wider than the variance from the other two. This is because the purple points have a wider spread. The red points in contrast do not have as wide of a spread as the purple or green points.
+
+H0: Covariance matrices of the outcome variable are equal across all groups
+Ha: COvariance matrices of the outcome variable are different for at least one group
+
+```{r}
+boxm <- heplots::boxM(data_Q2[, c(2,8)], data_Q2$victory_status)
+boxm
+```
+```{r}
+plot(boxm)
+```
+> The values are not homogenous
+
+```{r}
+#As an additional check, we can perform a Levene test to check for equal variances.
+
+car::leveneTest(turns ~ victory_status, data_Q2)
+car::leveneTest(Rating_WB ~ victory_status, data_Q2)
+```
+
+
+
+
 ```{r}
 library(ggplot2)
 library(GGally)
 ggpairs(Q2.sub,lower = list(continuous = "smooth_loess",combo ="facethist",discrete = "facetbar",na ="na"))
 ```
+************************************************************************************************
+>Multinomial Regression for Q2
+
 > Checking the levels in the response variable
 
-```{r}
-as.factor(data_Q2$victory_status)
-```
 ```{r}
 any(is.na(data_Q2$victory_status))
 ```
@@ -180,13 +232,108 @@ unique(data_Q2$vicfact)
 library(tidyverse)
 library(nnet)
 ```
+```{r}
+data_Q2
+```
 
 
 ```{r}
-# Fit the multinomial regression model
-m.model <- glm(vicfact~., data = data_Q2)
-
-# Summarize the model
-summary(m.model)
+library(VGAM)
+n.model<-vglm(vicfact~rated+turns+pace_type+Rating_WB+opening_strategy,family=multinomial(),data = data_Q2)
 ```
+```{r}
+summary(n.model)
+```
+>Running the model with only the significant variables
+
+```{r}
+n2.model<-vglm(vicfact~turns+pace_type+opening_strategy,family=multinomial,data = data_Q2)
+```
+
+```{r}
+summary(n2.model)
+```
+
+>Plotting the model coefficients with the training set
+
+```{r}
+cf.n2.model<-coefficients(n2.model)
+plot.n2.model<-barplot(cf.n2.model, col="navy blue", xaxt='n', main="Regression
+Coefficients")
+lablist.n2.model <- names(cf.n2.model)
+text(plot.n2.model, par("usr")[3], labels = lablist.n2.model, srt = 60, adj =
+c(1.1,1.1), xpd = TRUE, cex=0.7)
+
+```
+# Goodness of fit
+
+
+The hypotheses for this test are:
+H0: there is no significant difference between the observed and the expected value.
+Ha: there is a significant difference between the observed and the expected value.
+
+
+```{r}
+1-pchisq(sum(resid(n2.model,
+type="pearson")^2),df.residual(n2.model))
+```
+>The P-value is large and  we fail to reject the null hypothesis and there is no difference between the observed and expected value. 
+Hence our model provides a good fit.
+
+# Check accuracy on train
+
+```{r}
+prob.fit.n2.model<-predict(n2.model, newdata=data_Q2,type="response") # return the probability of being in one of category of victory  status
+```
+
+
+```{r}
+library(matrixStats)
+colnames<-c("MATE","OUTOFTIME","RESIGN")
+fitted_train<-apply(prob.fit.n2.model, 1, function(x) {colnames[which.max(x)]}) # turn probabilities into actual categories, pick the max of each row and return the column name associated with it
+```
+```{r}
+x1<-data.frame(fitted_train)
+head(x1)
+```
+```{r}
+head(data.frame(Observed_value = data_Q2$vicfact, Fitted_value =
+fitted_train))
+```
+```{r}
+misclass_train <- mean(fitted_train != data_Q2$vicfact)
+print(paste('Accuracy %',round((1-misclass_train)*100 ,2)))
+```
+
+***********************************************************************************
+# Cross validation for Multinomial model
+
+```{r}
+library(caret)
+set.seed(5)
+folds<-createFolds(factor(data_Q2$vicfact), k=10)
+```
+
+>Writing functions to calculate the cross validation error
+
+```{r}
+#Multinomial regression
+mcr.mnr<-function(idx){
+  Train<-data_Q2[-idx,]
+  Test<-data_Q2[idx,]
+  fitmnr<-vglm(vicfact~turns+pace_type+opening_strategy,family=multinomial,data = Train)
+  pred_victor<-predict(fitmnr,Test,type = "response")
+  predictmnr2 <- apply(pred_victor, 1, function(x) {colnames[which.max(x)]})
+  return(mean(predictmnr2 != Test$vicfact))
+}
+```
+
+```{r}
+mnr = lapply(folds,mcr.mnr)
+mean(as.numeric(mnr))
+```
+
+
+
+
 
